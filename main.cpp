@@ -254,9 +254,6 @@ int main(int argc, char* argv[])
     int shift_x = 0;
     int shift_y = 0;
 
-    // Logic
-    std::vector<int> positionArray;
-
     if ( NULL == window )
     {
         std::cout << "Could not create window: " << SDL_GetError( ) << std::endl;
@@ -271,6 +268,8 @@ int main(int argc, char* argv[])
     {
         frameStart = SDL_GetTicks();
 
+        std::vector<std::tuple<int,int>> temp_list;
+        
         while ( SDL_PollEvent( &windowEvent ) ){
                 if ( SDL_QUIT == windowEvent.type ) {
                     quit = true;
@@ -288,6 +287,7 @@ int main(int argc, char* argv[])
                     if (windowEvent.key.keysym.sym == SDLK_RIGHT){
                         shift_x = shift_x - 20;
                     }
+                    // This wasn't working right, back to bunch of if conditions
                     //switch (windowEvent.key.keysym.sym){
                     //     case SDLK_UP:
                     //         shift_y = shift_y + 20;
@@ -301,6 +301,23 @@ int main(int argc, char* argv[])
                     if (windowEvent.key.keysym.sym == SDLK_ESCAPE){
                         quit = true;
                     }
+                }
+                else if (windowEvent.type == SDL_MOUSEBUTTONDOWN){
+                        if (windowEvent.button.button == SDL_BUTTON_LEFT){
+                            int mouseX = windowEvent.button.x;
+                            int mouseY = windowEvent.button.y;
+
+                            int correctX = mouseX - mouseX % 20;
+                            int correctY = mouseY - mouseY % 20;
+
+                            std::tuple<int, int> new_life = std::make_tuple(correctX, correctY);
+
+                            temp_list.push_back(new_life);
+                            
+                            std::cout << "correctX: " << correctX << ", correctY: " << correctY << "\n";
+                            //SDL_Rect newLifeRect = {mouseX, mouseY, 20, 20};
+                            //SDL_RenderFillRect(renderer, &newLifeRect);
+                        }
                 }
         }
 
@@ -326,6 +343,15 @@ int main(int argc, char* argv[])
         life_list = next_generation(life_list);
         life_list = life_fence(life_list);
 
+        // Have to put the mouse click into a temp_list then render it here, can't render it by the mouse click, will need to think about that
+        for (const auto& tuple : temp_list){
+            int x_pos = std::get<0>(tuple);
+            int y_pos = std::get<1>(tuple);
+            SDL_Rect newLife = {x_pos + shift_x, y_pos + shift_y, 20, 20};
+            SDL_RenderFillRect(renderer, &newLife);
+        }
+
+        // Renders all the tuple coordinates in the array tracking live cell locations
         for (const auto& tuple : life_list){
             int x_pos = std::get<0>(tuple);
             int y_pos = std::get<1>(tuple);
@@ -340,6 +366,10 @@ int main(int argc, char* argv[])
         if (frameTime < 1000 / FPS) {
             SDL_Delay((1000 / FPS) - frameTime);
         }
+
+        // Merge temp_list into life_list
+        life_list.insert(life_list.end(), temp_list.begin(), temp_list.end());
+
     }
 
     SDL_DestroyRenderer(renderer);
