@@ -5,9 +5,11 @@
 #include <array>
 #include <unordered_map>
 #include <set>
+#include <algorithm>
 //#include "next_generation.h"
 
-const int WIDTH = 1000, HEIGHT = 1000;
+int WIDTH = 1000, HEIGHT = 1000;
+const int FPS = 10;
 
 namespace std {
     template <>
@@ -27,7 +29,6 @@ std::vector<std::tuple<int,int>> next_generation(const std::vector<std::tuple<in
     for (const auto& tuple : old_Life){
         int x_pos = std::get<0>(tuple);
         int y_pos = std::get<1>(tuple);
-        std::cout << "x_pos is " << x_pos << ", y_pos is " << y_pos << std::endl;
     
         // top left
         std::tuple<int, int> new_tuple = std::make_tuple(x_pos - 20, y_pos + 20);
@@ -166,6 +167,7 @@ std::vector<std::tuple<int,int>> next_generation(const std::vector<std::tuple<in
                 }
             }
         }
+        //std::cout << "nCount for (" << x_cell << ", " << y_cell << ") is " << nCount << std::endl;
         if (nCount == 2 || nCount == 3){
             new_life.push_back(cell);
         }
@@ -183,6 +185,7 @@ std::vector<std::tuple<int,int>> next_generation(const std::vector<std::tuple<in
     return new_life;
 }
 
+// the initial life state
 std::vector<std::tuple<int,int>> gosper_gun_builder() {
     
     std::vector<std::tuple<int, int>> figure_a = {{std::make_tuple(100, 500), std::make_tuple(120, 500), std::make_tuple(100, 520), std::make_tuple(120, 520)}};
@@ -214,12 +217,27 @@ std::vector<std::tuple<int,int>> gosper_gun_builder() {
     return joinedArray;
 }
 
+std::vector<std::tuple<int,int>> life_fence(const std::vector<std::tuple<int,int>> my_life_list){
+    std::vector<std::tuple<int, int>> filteredList = my_life_list;
+
+    auto isOutOfRange = [](const std::tuple<int, int>& t) {
+        int x = std::get<0>(t);
+        int y = std::get<1>(t);
+        return (x < -2000 || x > 2000 || y < -2000 || y > 2000);
+    };
+    auto newEnd = std::remove_if(filteredList.begin(), filteredList.end(), isOutOfRange);
+
+    filteredList.erase(newEnd, filteredList.end());
+
+    return filteredList;
+}
+
 int main(int argc, char* argv[])
 {
     // Graphic stuff
     SDL_Init(SDL_INIT_EVERYTHING);
 
-    SDL_Window* window = SDL_CreateWindow( "Game of Life", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_ALLOW_HIGHDPI);
+    SDL_Window* window = SDL_CreateWindow( "Game of Life", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // (R, G, B, Alpha) background color
     
@@ -230,6 +248,11 @@ int main(int argc, char* argv[])
     int squareY = 500;
 
     int gridSize = 20;
+    Uint32 frameStart;
+    int frameTime;
+
+    int shift_x = 0;
+    int shift_y = 0;
 
     // Logic
     std::vector<int> positionArray;
@@ -243,34 +266,80 @@ int main(int argc, char* argv[])
     SDL_Event windowEvent;
 
     std::vector<std::tuple<int,int>> life_list = gosper_gun_builder();
-
-    while ( true )
+    bool quit = false;
+    while (!quit)
     {
-        if ( SDL_PollEvent( &windowEvent ) )
-        {
-            if ( SDL_QUIT == windowEvent.type )
-            {break;}
+        frameStart = SDL_GetTicks();
+
+        while ( SDL_PollEvent( &windowEvent ) ){
+                if ( SDL_QUIT == windowEvent.type ) {
+                    quit = true;
+                }
+                else if (windowEvent.type == SDL_KEYDOWN){
+                    if (windowEvent.key.keysym.sym == SDLK_UP){
+                        shift_y = shift_y + 20;
+                    }
+                    if (windowEvent.key.keysym.sym == SDLK_DOWN){
+                        shift_y = shift_y - 20;
+                    }
+                    if (windowEvent.key.keysym.sym == SDLK_LEFT){
+                        shift_x = shift_x + 20;
+                    }
+                    if (windowEvent.key.keysym.sym == SDLK_RIGHT){
+                        shift_x = shift_x - 20;
+                    }
+                    //switch (windowEvent.key.keysym.sym){
+                    //     case SDLK_UP:
+                    //         shift_y = shift_y + 20;
+                    //     case SDLK_DOWN:
+                    //         shift_y = shift_y - 20;
+                    //     case SDLK_LEFT:
+                    //         shift_x = shift_x - 20;
+                    //     case SDLK_RIGHT:
+                    //         shift_x = shift_x + 20;
+                    // }
+                    if (windowEvent.key.keysym.sym == SDLK_ESCAPE){
+                        quit = true;
+                    }
+                }
         }
+
+        SDL_GetWindowSize(window, &WIDTH, &HEIGHT);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); //Set render draw color to white
+
+        int start_x = shift_x % gridSize;
+        int start_y = shift_y % gridSize;
+
         // Vertical Lines
-        for (int x = 0; x <= WIDTH; x += gridSize){
-            SDL_RenderDrawLine(renderer, x, 0, x, HEIGHT);
+        for (int x = start_x - shift_x; x <= WIDTH - shift_x; x += gridSize){
+            SDL_RenderDrawLine(renderer, x + shift_x, 0, x +shift_x, HEIGHT);
         }
 
         // Horizontal Lines
-        for (int y = 0; y <= HEIGHT; y += gridSize){
-            SDL_RenderDrawLine(renderer, 0, y, WIDTH, y);
+        for (int y = start_y - shift_y; y <= HEIGHT - shift_y; y += gridSize){
+            SDL_RenderDrawLine(renderer, 0, y + shift_y, WIDTH, y + shift_y);
         }
         
         life_list = next_generation(life_list);
+        life_list = life_fence(life_list);
 
         for (const auto& tuple : life_list){
             int x_pos = std::get<0>(tuple);
             int y_pos = std::get<1>(tuple);
-            SDL_Rect newLife = {x_pos, y_pos, 20, 20};
+            SDL_Rect newLife = {x_pos + shift_x, y_pos + shift_y, 20, 20};
             SDL_RenderFillRect(renderer, &newLife);
         }
+
         SDL_RenderPresent(renderer);
+
+        frameTime =  SDL_GetTicks() - frameStart;
+
+        if (frameTime < 1000 / FPS) {
+            SDL_Delay((1000 / FPS) - frameTime);
+        }
     }
 
     SDL_DestroyRenderer(renderer);
