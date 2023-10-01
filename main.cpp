@@ -9,7 +9,7 @@
 //#include "next_generation.h"
 
 int WIDTH = 1000, HEIGHT = 1000;
-const int FPS = 10;
+int FPS = 10;
 
 namespace std {
     template <>
@@ -254,6 +254,14 @@ int main(int argc, char* argv[])
     int shift_x = 0;
     int shift_y = 0;
 
+    int loopCount = 0;
+    int loopMax = 10;
+
+    bool leftDrag = false;
+    bool rightDrag = false;
+
+    int prevMouseX;
+    int prevMouseY;
     if ( NULL == window )
     {
         std::cout << "Could not create window: " << SDL_GetError( ) << std::endl;
@@ -287,6 +295,16 @@ int main(int argc, char* argv[])
                     if (windowEvent.key.keysym.sym == SDLK_RIGHT){
                         shift_x = shift_x - 20;
                     }
+                    if (windowEvent.key.keysym.sym == SDLK_EQUALS){
+                        if (FPS < 100) {
+                            FPS += 10;
+                        }
+                    }
+                    if (windowEvent.key.keysym.sym == SDLK_MINUS){
+                        if (FPS > 10) {
+                            FPS -= 10;
+                        }
+                    }
                     // This wasn't working right, back to bunch of if conditions
                     //switch (windowEvent.key.keysym.sym){
                     //     case SDLK_UP:
@@ -303,21 +321,72 @@ int main(int argc, char* argv[])
                     }
                 }
                 else if (windowEvent.type == SDL_MOUSEBUTTONDOWN){
-                        if (windowEvent.button.button == SDL_BUTTON_LEFT){
-                            int mouseX = windowEvent.button.x;
-                            int mouseY = windowEvent.button.y;
+                    if (windowEvent.button.button == SDL_BUTTON_LEFT){
+                        leftDrag = true;
+                        int mouseX = windowEvent.button.x;
+                        int mouseY = windowEvent.button.y;
 
-                            int correctX = mouseX - mouseX % 20;
-                            int correctY = mouseY - mouseY % 20;
+                        int correctX = mouseX - mouseX % 20;
+                        int correctY = mouseY - mouseY % 20;
 
-                            std::tuple<int, int> new_life = std::make_tuple(correctX, correctY);
+                        std::tuple<int, int> new_life = std::make_tuple(correctX, correctY);
 
-                            temp_list.push_back(new_life);
-                            
-                            std::cout << "correctX: " << correctX << ", correctY: " << correctY << "\n";
-                            //SDL_Rect newLifeRect = {mouseX, mouseY, 20, 20};
-                            //SDL_RenderFillRect(renderer, &newLifeRect);
+                        temp_list.push_back(new_life);
+                        
+                        //std::cout << "correctX: " << correctX << ", correctY: " << correctY << "\n";
+                        //SDL_Rect newLifeRect = {mouseX, mouseY, 20, 20};
+                        //SDL_RenderFillRect(renderer, &newLifeRect);
+                    }
+                    else if (windowEvent.button.button == SDL_BUTTON_RIGHT){
+                        rightDrag = true;
+                    }
+                }
+                else if (windowEvent.type == SDL_MOUSEMOTION){
+                    if (leftDrag){
+                        int mouseX = windowEvent.button.x;
+                        int mouseY = windowEvent.button.y;
+
+                        int correctX = mouseX - mouseX % 20;
+                        int correctY = mouseY - mouseY % 20;
+
+                        std::tuple<int, int> new_life = std::make_tuple(correctX, correctY);
+
+                        temp_list.push_back(new_life);
+                    }
+                    if (rightDrag){
+                        int mouseX = windowEvent.button.x;
+                        int mouseY = windowEvent.button.y;
+                        if (prevMouseX && prevMouseY){
+                            int delta_x = mouseX - prevMouseX;
+                            int delta_y = mouseY - prevMouseY;
+
+                            if(delta_x > 0){
+                                shift_x = shift_x + 20;
+                            }
+                            else if (delta_x < 0){
+                                shift_x = shift_x - 20;
+                            }
+                            else{
+                                ;
+                            }
+
+                            if (delta_y > 0){
+                                shift_y = shift_y + 20;
+                            }
+                            else if (delta_y < 0){
+                                shift_y = shift_y - 20;
+                            }
+                            else{
+                                ;
+                            }
                         }
+                        prevMouseX = mouseX;
+                        prevMouseY = mouseY;
+                    }
+                }
+                else if (windowEvent.type == SDL_MOUSEBUTTONUP){
+                    leftDrag = false;
+                    rightDrag = false;
                 }
         }
 
@@ -330,19 +399,6 @@ int main(int argc, char* argv[])
         int start_x = shift_x % gridSize;
         int start_y = shift_y % gridSize;
 
-        // Vertical Lines
-        for (int x = start_x - shift_x; x <= WIDTH - shift_x; x += gridSize){
-            SDL_RenderDrawLine(renderer, x + shift_x, 0, x +shift_x, HEIGHT);
-        }
-
-        // Horizontal Lines
-        for (int y = start_y - shift_y; y <= HEIGHT - shift_y; y += gridSize){
-            SDL_RenderDrawLine(renderer, 0, y + shift_y, WIDTH, y + shift_y);
-        }
-        
-        life_list = next_generation(life_list);
-        life_list = life_fence(life_list);
-
         // Have to put the mouse click into a temp_list then render it here, can't render it by the mouse click, will need to think about that
         for (const auto& tuple : temp_list){
             int x_pos = std::get<0>(tuple);
@@ -350,15 +406,30 @@ int main(int argc, char* argv[])
             SDL_Rect newLife = {x_pos + shift_x, y_pos + shift_y, 20, 20};
             SDL_RenderFillRect(renderer, &newLife);
         }
+        if (loopCount >= loopMax){
+            // Vertical Lines
+            for (int x = start_x - shift_x; x <= WIDTH - shift_x; x += gridSize){
+                SDL_RenderDrawLine(renderer, x + shift_x, 0, x +shift_x, HEIGHT);
+            }
 
-        // Renders all the tuple coordinates in the array tracking live cell locations
-        for (const auto& tuple : life_list){
-            int x_pos = std::get<0>(tuple);
-            int y_pos = std::get<1>(tuple);
-            SDL_Rect newLife = {x_pos + shift_x, y_pos + shift_y, 20, 20};
-            SDL_RenderFillRect(renderer, &newLife);
+            // Horizontal Lines
+            for (int y = start_y - shift_y; y <= HEIGHT - shift_y; y += gridSize){
+                SDL_RenderDrawLine(renderer, 0, y + shift_y, WIDTH, y + shift_y);
+            }
+            
+            life_list = next_generation(life_list);
+            life_list = life_fence(life_list);
+
+            // Renders all the tuple coordinates in the array tracking live cell locations
+            for (const auto& tuple : life_list){
+                int x_pos = std::get<0>(tuple);
+                int y_pos = std::get<1>(tuple);
+                SDL_Rect newLife = {x_pos + shift_x, y_pos + shift_y, 20, 20};
+                SDL_RenderFillRect(renderer, &newLife);
+            }
+            
         }
-
+        loopCount += 1;
         SDL_RenderPresent(renderer);
 
         frameTime =  SDL_GetTicks() - frameStart;
@@ -367,7 +438,7 @@ int main(int argc, char* argv[])
             SDL_Delay((1000 / FPS) - frameTime);
         }
 
-        // Merge temp_list into life_list
+        //Merge temp_list into life_list
         life_list.insert(life_list.end(), temp_list.begin(), temp_list.end());
 
     }
