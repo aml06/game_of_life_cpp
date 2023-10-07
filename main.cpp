@@ -263,6 +263,9 @@ int main(int argc, char* argv[])
     bool leftDrag = false;
     bool rightDrag = false;
 
+    int fudge_X = 0;
+    int fudge_Y = 0;
+
     int prevMouseX;
     int prevMouseY;
     if ( NULL == window ){
@@ -288,16 +291,16 @@ int main(int argc, char* argv[])
 
                     // scrolling screen
                     if (windowEvent.key.keysym.sym == SDLK_UP){
-                        shift_y = std::floor((shift_y + 20));
+                        shift_y = std::floor((shift_y + std::floor(20 / zoom)));
                     }
                     if (windowEvent.key.keysym.sym == SDLK_DOWN){
-                        shift_y = std::floor((shift_y - 20));
+                        shift_y = std::floor((shift_y - std::floor(20 / zoom)));
                     }
                     if (windowEvent.key.keysym.sym == SDLK_LEFT){
-                        shift_x = std::floor((shift_x + 20));
+                        shift_x = std::floor((shift_x + std::floor(20 / zoom)));
                     }
                     if (windowEvent.key.keysym.sym == SDLK_RIGHT){
-                        shift_x = std::floor((shift_x - 20));
+                        shift_x = std::floor((shift_x - std::floor(20 / zoom)));
                     }
 
                     // Change speed of computation
@@ -311,7 +314,23 @@ int main(int argc, char* argv[])
                             FPS -= 10;
                         }
                     }
-
+                    // Fudge Factors
+                    if (windowEvent.key.keysym.sym == SDLK_e){
+                        fudge_X += 1;
+                        std::cout << "Fudge_X: " << fudge_X << "\n";
+                    }
+                    if (windowEvent.key.keysym.sym == SDLK_r){
+                        fudge_X += 1;
+                        std::cout << "Fudge_X: " << fudge_X << "\n";
+                    }
+                    if (windowEvent.key.keysym.sym == SDLK_d){
+                        fudge_Y += 1;
+                        std::cout << "Fudge_Y: " << fudge_X << "\n";
+                    }
+                    if (windowEvent.key.keysym.sym == SDLK_f){
+                        fudge_Y -= 1;
+                        std::cout << "Fudge_Y: " << fudge_X << "\n";
+                    }
                     // This wasn't working right, back to bunch of if conditions
                     //switch (windowEvent.key.keysym.sym){
                     //     case SDLK_UP:
@@ -333,11 +352,13 @@ int main(int argc, char* argv[])
                     if (windowEvent.key.keysym.sym == SDLK_m){
                         if (zoom > 0.2){
                             zoom -= 0.1;
+                            std::cout << "Current Zoom: " << zoom << " \n";
                         }
                     }
                     if (windowEvent.key.keysym.sym == SDLK_n){
                         if (zoom < 2){
                             zoom += 0.1;
+                            std::cout << "Current Zoom: " << zoom << " \n";
                         }
                     }
                 }
@@ -347,8 +368,8 @@ int main(int argc, char* argv[])
                         int mouseX = windowEvent.button.x;
                         int mouseY = windowEvent.button.y;
 
-                        int correctX = mouseX - (mouseX - shift_x) % 20 - shift_x;
-                        int correctY = mouseY - (mouseY - shift_y) % 20 - shift_y;
+                        int correctX = std::floor(mouseX - (mouseX - shift_x) % 20 / zoom - shift_x);
+                        int correctY = std::floor(mouseY - (mouseY - shift_y) % 20 / zoom - shift_y);
 
                         std::tuple<int, int> new_life = std::make_tuple(correctX, correctY);
 
@@ -367,8 +388,8 @@ int main(int argc, char* argv[])
                         int mouseX = windowEvent.button.x;
                         int mouseY = windowEvent.button.y;
 
-                        int correctX = mouseX - (mouseX - shift_x) % 20 - shift_x;
-                        int correctY = mouseY - (mouseY - shift_y) % 20 - shift_y;
+                        int correctX = mouseX - std::floor((mouseX - shift_x) % 20 / zoom) - shift_x;
+                        int correctY = mouseY - std::floor((mouseY - shift_y) % 20 / zoom) - shift_y;
 
                         std::tuple<int, int> new_life = std::make_tuple(correctX, correctY);
 
@@ -382,20 +403,20 @@ int main(int argc, char* argv[])
                             int delta_y = mouseY - prevMouseY;
 
                             if(delta_x > 0){
-                                shift_x = shift_x + 20;
+                                shift_x = shift_x + std::floor(20 / zoom);
                             }
                             else if (delta_x < 0){
-                                shift_x = shift_x - 20;
+                                shift_x = shift_x - std::floor(20 / zoom);
                             }
                             else{
                                 ;
                             }
 
                             if (delta_y > 0){
-                                shift_y = shift_y + 20;
+                                shift_y = shift_y + std::floor(20 / zoom);
                             }
                             else if (delta_y < 0){
-                                shift_y = shift_y - 20;
+                                shift_y = shift_y - std::floor(20 / zoom);
                             }
                             else{
                                 ;
@@ -416,30 +437,29 @@ int main(int argc, char* argv[])
         SDL_RenderClear(renderer);
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); //Set render draw color to white
-
-        int start_x = shift_x % gridSize;
-        int start_y = shift_y % gridSize;
+        
+        int scaled_gridSize = std::floor(gridSize / zoom);
+        // int start_x = shift_x % scaled_gridSize;
+        // int start_y = shift_y % scaled_gridSize;
 
         // Have to put the mouse click into a temp_list then render it here, can't render it by the mouse click, will need to think about that
         for (const auto& tuple : temp_list){
             int x_pos = std::get<0>(tuple);
             int y_pos = std::get<1>(tuple);
-            SDL_Rect newLife = {x_pos + shift_x, y_pos + shift_y, 20, 20};
+            SDL_Rect newLife = {x_pos + shift_x, y_pos + shift_y, scaled_gridSize, scaled_gridSize};
             SDL_RenderFillRect(renderer, &newLife);
         }
         if (loopCount >= loopMax){
 
-            int scaled_width = std::floor(WIDTH / zoom);
-            int scaled_height = std::floor(HEIGHT / zoom);
             int scaled_gridSize = std::floor(gridSize / zoom);
-
+            
             // Vertical Lines
-            for (int x = start_x; x <= WIDTH; x += scaled_gridSize){
+            for (int x = 0; x <= WIDTH; x += scaled_gridSize){
                 SDL_RenderDrawLine(renderer, x, 0, x, HEIGHT);
             }
             
             // Horizontal Lines
-            for (int y = start_y; y <= HEIGHT; y += scaled_gridSize){
+            for (int y = 0; y <= HEIGHT; y += scaled_gridSize){
                 SDL_RenderDrawLine(renderer, 0, y, WIDTH, y);
             }
             
@@ -451,11 +471,10 @@ int main(int argc, char* argv[])
                 int x_pos = std::get<0>(tuple);
                 int y_pos = std::get<1>(tuple);
 
-                int x_pos_corrected = std::floor((x_pos + shift_x)/zoom);
-                int y_pos_corrected = std::floor((y_pos + shift_y)/zoom);
-                int d = std::floor(20 / zoom);
+                int x_pos_corrected = std::floor((x_pos + shift_x) / zoom);
+                int y_pos_corrected = std::floor((y_pos + shift_y) / zoom);
 
-                SDL_Rect newLife = {x_pos_corrected , y_pos_corrected, d, d};
+                SDL_Rect newLife = {x_pos_corrected , y_pos_corrected, scaled_gridSize, scaled_gridSize};
                 SDL_RenderFillRect(renderer, &newLife);
             }
             
